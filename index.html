@@ -1796,7 +1796,7 @@
 
     <script>
         // ================================================================
-        //  BEAN'S HRIS — NETLIFY + JSONBIN + AUTH + PROFESSIONAL UI
+        //  BEAN'S HRIS — NETLIFY + JSONBIN + AUTH + SECURE SESSION
         // ================================================================
 
         // ── Default empty database ──
@@ -1818,31 +1818,81 @@
         let cloudSaving = false;
         let saveQueue = Promise.resolve();
 
-        // ── Authentication (sessionStorage) ──
+        // ── Session Management with timeout ──
         const SESSION_KEY = 'hris_session';
+        const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
         let currentUser = null;
-
-        function getSession() {
-            const sess = sessionStorage.getItem(SESSION_KEY);
-            if (sess) {
-                try {
-                    currentUser = JSON.parse(sess);
-                    return currentUser;
-                } catch (e) { currentUser = null; }
-            }
-            return null;
-        }
-
-        function setSession(user) {
-            currentUser = user;
-            sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
-        }
+        let inactivityTimer = null;
 
         function clearSession() {
             currentUser = null;
             sessionStorage.removeItem(SESSION_KEY);
+            if (inactivityTimer) {
+                clearTimeout(inactivityTimer);
+                inactivityTimer = null;
+            }
+            stopActivityListeners();
         }
 
+        function setSession(user) {
+            currentUser = user;
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, timestamp: Date.now() }));
+            startActivityListeners();
+            resetInactivityTimer();
+        }
+
+        function getSession() {
+            const sess = sessionStorage.getItem(SESSION_KEY);
+            if (!sess) return null;
+            try {
+                const data = JSON.parse(sess);
+                const elapsed = Date.now() - data.timestamp;
+                if (elapsed > SESSION_TIMEOUT) {
+                    // Session expired
+                    clearSession();
+                    return null;
+                }
+                currentUser = data.user;
+                return currentUser;
+            } catch (e) {
+                clearSession();
+                return null;
+            }
+        }
+
+        // ── Activity listeners for timeout reset ──
+        function resetInactivityTimer() {
+            if (inactivityTimer) clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                // Auto logout due to inactivity
+                toast('Session expired due to inactivity.', 'warning');
+                logout();
+            }, SESSION_TIMEOUT);
+        }
+
+        function startActivityListeners() {
+            const events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+            events.forEach(evt => {
+                document.addEventListener(evt, resetInactivityTimer);
+            });
+            // Also reset on any action that triggers a save or data change
+            // We'll rely on the general events.
+        }
+
+        function stopActivityListeners() {
+            const events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+            events.forEach(evt => {
+                document.removeEventListener(evt, resetInactivityTimer);
+            });
+        }
+
+        // ── Clear session on page unload (refresh or tab close) ──
+        window.addEventListener('beforeunload', function() {
+            // Clear session so that refresh/logout is immediate
+            clearSession();
+        });
+
+        // ── Authentication helper ──
         function isAdmin() {
             return currentUser && currentUser.role === 'admin';
         }
@@ -1856,6 +1906,8 @@
             }
             document.getElementById('login-overlay').classList.remove('open');
             document.getElementById('main').style.display = 'flex';
+            // Reset timer on each page load / check
+            resetInactivityTimer();
             return true;
         }
 
@@ -1915,12 +1967,6 @@
                 passField.setAttribute('type', type);
                 this.querySelector('i').className = type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
             });
-        });
-
-        // ── Auto-logout when tab closes ──
-        window.addEventListener('beforeunload', function() {
-            // sessionStorage is cleared automatically when tab closes.
-            // No additional action needed.
         });
 
         // ── Audit Log ──
@@ -3515,7 +3561,7 @@
         }
 
         // ================================================================
-        //  IMPORT / EXPORT — FIXED: robust column matching & saveDB
+        //  IMPORT / EXPORT — robust and saves to JSONBin
         // ================================================================
         const MODULE_RENDER_FNS = { employees: renderEmployees, recruitment: renderRecruitment,
             applicants: renderApplicants, newhires: renderNewhires, regularization: renderRegularization,
@@ -3543,7 +3589,6 @@
                     const rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: '' });
                     console.log(`Importing ${rows.length} rows from Excel for ${dbKey}`);
                     const result = runImportRows(rows, dbKey);
-                    // Save to cloud and refresh
                     saveDB().then(() => {
                         afterImportRefresh(dbKey);
                         showImportSummary(dbKey, result);
@@ -3595,7 +3640,6 @@
                 skipped = 0;
             const errors = [];
 
-            // Normalize all field names and aliases for flexible matching
             const fieldMap = buildFieldMap(dbKey);
 
             rows.forEach((row, idx) => {
@@ -3607,9 +3651,7 @@
                     return;
                 }
 
-                // Handle employees separately to sync lifecycle
                 if (dbKey === 'employees') {
-                    // Extract training fields
                     const trainingMap = { sdp: 'SDP', bmp: 'BMP', mdp: 'MDP' };
                     const validStates = ['DONE', 'ONGOING', 'NOT YET'];
                     const trainingUpdates = {};
@@ -3661,7 +3703,6 @@
                     return;
                 }
 
-                // For other modules, try to find by employee number if available
                 if (['newhires', 'regularization', 'separation'].includes(dbKey) && rec.empNo) {
                     const emp = db.employees.find(e => e.empNo && cleanVal(e.empNo).toLowerCase() === cleanVal(rec
                         .empNo).toLowerCase());
@@ -3681,13 +3722,11 @@
             return { added, updated, skipped, errors };
         }
 
-        // Build a flexible field mapping
         function buildFieldMap(dbKey) {
             const maps = FIELD_MAPS[dbKey];
             if (!maps) return {};
             const map = {};
             maps.forEach(([field, aliases]) => {
-                // Normalize aliases for matching
                 map[field] = aliases.map(a => normalizeString(a));
             });
             return map;
@@ -3699,7 +3738,6 @@
 
         function normalizeRow(row, fieldMap, dbKey) {
             const rec = {};
-            // Normalize row keys
             const normKeys = {};
             Object.keys(row).forEach(k => {
                 normKeys[normalizeString(k)] = row[k];
@@ -3717,7 +3755,6 @@
                 rec[field] = found !== undefined ? found : '';
             });
 
-            // Convert date fields
             (IMPORT_DATE_FIELDS[dbKey] || []).forEach(f => {
                 if (rec[f]) rec[f] = excelValueToISODate(rec[f]);
             });
@@ -4240,6 +4277,7 @@
                 await saveDB();
             }
 
+            // Check session
             const user = getSession();
             if (user) {
                 const valid = db.users.some(u => u.username === user.username && u.password === user.password);
@@ -4250,6 +4288,7 @@
                 } else {
                     document.getElementById('login-overlay').classList.remove('open');
                     document.getElementById('main').style.display = 'flex';
+                    resetInactivityTimer();
                 }
             } else {
                 document.getElementById('login-overlay').classList.add('open');
