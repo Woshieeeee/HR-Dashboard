@@ -1,22 +1,22 @@
 export default async function handler(req, res) {
-  const BIN_ID = process.env.JSONBIN_BIN_ID;
-  const ACCESS_KEY = process.env.JSONBIN_ACCESS_KEY;
+
+  // Your JSONBin Bin ID
+  const BIN_ID =
+    process.env.JSONBIN_BIN_ID ||
+    '6a7bd3caf5f4af5e2909f46b';
+
+  // Secret — keep this in Vercel Environment Variables
+  const ACCESS_KEY =
+    process.env.JSONBIN_ACCESS_KEY;
 
   // ------------------------------------------------------------
-  // Check environment variables
+  // Check Access Key
   // ------------------------------------------------------------
-
-  if (!BIN_ID) {
-    return res.status(500).json({
-      success: false,
-      error: "JSONBIN_BIN_ID is not configured in Vercel."
-    });
-  }
 
   if (!ACCESS_KEY) {
     return res.status(500).json({
       success: false,
-      error: "JSONBIN_ACCESS_KEY is not configured in Vercel."
+      error: 'JSONBIN_ACCESS_KEY is not configured in Vercel.'
     });
   }
 
@@ -29,17 +29,17 @@ export default async function handler(req, res) {
     // GET DATABASE
     // ==========================================================
 
-    if (req.method === "GET") {
+    if (req.method === 'GET') {
 
       const response = await fetch(JSONBIN_URL, {
-        method: "GET",
+        method: 'GET',
 
         headers: {
-          "X-Access-Key": ACCESS_KEY,
-          "Content-Type": "application/json"
+          'X-Access-Key': ACCESS_KEY,
+          'Content-Type': 'application/json'
         },
 
-        cache: "no-store"
+        cache: 'no-store'
       });
 
       const text = await response.text();
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       if (!response.ok) {
 
         console.error(
-          "JSONBin GET error:",
+          'JSONBin GET error:',
           response.status,
           result
         );
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
           error:
             result?.message ||
             result?.error ||
-            "JSONBin failed to load the database."
+            'JSONBin failed to load the database.'
         });
       }
 
@@ -79,26 +79,26 @@ export default async function handler(req, res) {
 
 
     // ==========================================================
-    // UPDATE DATABASE
+    // SAVE / UPDATE DATABASE
     // ==========================================================
 
-    if (req.method === "PUT") {
+    if (req.method === 'PUT') {
 
       if (!req.body) {
 
         return res.status(400).json({
           success: false,
-          error: "No database data was supplied."
+          error: 'No database data was supplied.'
         });
       }
 
       const response = await fetch(JSONBIN_URL, {
 
-        method: "PUT",
+        method: 'PUT',
 
         headers: {
-          "X-Access-Key": ACCESS_KEY,
-          "Content-Type": "application/json"
+          'X-Access-Key': ACCESS_KEY,
+          'Content-Type': 'application/json'
         },
 
         body: JSON.stringify(req.body)
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
       if (!response.ok) {
 
         console.error(
-          "JSONBin PUT error:",
+          'JSONBin PUT error:',
           response.status,
           result
         );
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
           error:
             result?.message ||
             result?.error ||
-            "JSONBin failed to save the database."
+            'JSONBin failed to save the database.'
         });
       }
 
@@ -141,24 +141,23 @@ export default async function handler(req, res) {
 
 
     // ==========================================================
-    // METHOD NOT ALLOWED
+    // INVALID METHOD
     // ==========================================================
 
     res.setHeader(
-      "Allow",
-      "GET, PUT"
+      'Allow',
+      'GET, PUT'
     );
 
     return res.status(405).json({
       success: false,
-      error: "Method not allowed."
+      error: 'Method not allowed.'
     });
-
 
   } catch (error) {
 
     console.error(
-      "Vercel JSONBin API error:",
+      'Vercel JSONBin API error:',
       error
     );
 
@@ -166,8 +165,7 @@ export default async function handler(req, res) {
       success: false,
       error:
         error.message ||
-        "Unexpected server error."
+        'Unexpected server error.'
     });
   }
 }
-
