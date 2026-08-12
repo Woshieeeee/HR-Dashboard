@@ -6,7 +6,7 @@
 
 // ── Your keys (exactly as shown in your JSONBin dashboard) ──
 const BIN_ID = '6a7bdb34da38895dfed88f47';
-const ACCESS_KEY = '$2a$10$3TlwFttBFpegTK.k6TnP5uGlWVKLNZ7EwFn2GAhdLugBPQ0jDh9Ti'; // Master Key
+const ACCESS_KEY = '$2a$10$D7hFgVHzZVIC0Jcmx.ioeO6AOspavNpIX5xJxURe9HiYAU8lGDt7u'; // Master Key
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
