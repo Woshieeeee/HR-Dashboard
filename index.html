@@ -1851,7 +1851,6 @@
             const user = getSession();
             if (!user) {
                 document.getElementById('login-overlay').classList.add('open');
-                // Hide main content
                 document.getElementById('main').style.display = 'none';
                 return false;
             }
@@ -1887,7 +1886,6 @@
                 refreshDashboard();
                 renderUsers();
                 toast('Welcome back, ' + username + '!', 'success');
-                // Clear fields
                 document.getElementById('login-user').value = '';
                 document.getElementById('login-pass').value = '';
             } else {
@@ -1903,7 +1901,6 @@
             clearSession();
             document.getElementById('login-overlay').classList.add('open');
             document.getElementById('main').style.display = 'none';
-            // Clear fields
             document.getElementById('login-user').value = '';
             document.getElementById('login-pass').value = '';
             toast('Logged out', 'info');
@@ -1920,12 +1917,10 @@
             });
         });
 
-        // ── Auto-logout when tab closes (sessionStorage already cleared) ──
-        // We also handle page unload to clear session (optional)
+        // ── Auto-logout when tab closes ──
         window.addEventListener('beforeunload', function() {
             // sessionStorage is cleared automatically when tab closes.
-            // If you want to be extra sure, you can clear it:
-            // sessionStorage.removeItem(SESSION_KEY);
+            // No additional action needed.
         });
 
         // ── Audit Log ──
@@ -3520,7 +3515,7 @@
         }
 
         // ================================================================
-        //  IMPORT / EXPORT
+        //  IMPORT / EXPORT — FIXED: robust column matching & saveDB
         // ================================================================
         const MODULE_RENDER_FNS = { employees: renderEmployees, recruitment: renderRecruitment,
             applicants: renderApplicants, newhires: renderNewhires, regularization: renderRegularization,
@@ -3546,12 +3541,17 @@
                     const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
                     const ws = wb.Sheets[wb.SheetNames[0]];
                     const rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: '' });
+                    console.log(`Importing ${rows.length} rows from Excel for ${dbKey}`);
                     const result = runImportRows(rows, dbKey);
+                    // Save to cloud and refresh
                     saveDB().then(() => {
                         afterImportRefresh(dbKey);
                         showImportSummary(dbKey, result);
                     });
-                } catch (err) { toast('Import error: ' + err.message, 'error'); }
+                } catch (err) {
+                    console.error('Import error:', err);
+                    toast('Import error: ' + err.message, 'error');
+                }
             };
             reader.readAsBinaryString(file);
             input.value = '';
@@ -3574,12 +3574,16 @@
                         headers.forEach((h, idx) => { obj[h] = vals[idx] || ''; });
                         rows.push(obj);
                     }
+                    console.log(`Importing ${rows.length} rows from CSV for ${dbKey}`);
                     const result = runImportRows(rows, dbKey);
                     saveDB().then(() => {
                         afterImportRefresh(dbKey);
                         showImportSummary(dbKey, result);
                     });
-                } catch (err) { toast('CSV error: ' + err.message, 'error'); }
+                } catch (err) {
+                    console.error('CSV import error:', err);
+                    toast('CSV error: ' + err.message, 'error');
+                }
             };
             reader.readAsText(file);
             input.value = '';
@@ -3590,12 +3594,22 @@
                 updated = 0,
                 skipped = 0;
             const errors = [];
-            rows.forEach((row, idx) => {
-                const rec = normalizeImportRow(row, dbKey);
-                if (!rec || !rowHasMinimumData(dbKey, rec)) { skipped++;
-                    errors.push(`Row ${idx+2}: missing required field`); return; }
 
+            // Normalize all field names and aliases for flexible matching
+            const fieldMap = buildFieldMap(dbKey);
+
+            rows.forEach((row, idx) => {
+                const rec = normalizeRow(row, fieldMap, dbKey);
+                if (!rec || !rowHasMinimumData(dbKey, rec)) {
+                    skipped++;
+                    errors.push(`Row ${idx+2}: missing required field`);
+                    console.warn(`Row ${idx+2} skipped:`, rec);
+                    return;
+                }
+
+                // Handle employees separately to sync lifecycle
                 if (dbKey === 'employees') {
+                    // Extract training fields
                     const trainingMap = { sdp: 'SDP', bmp: 'BMP', mdp: 'MDP' };
                     const validStates = ['DONE', 'ONGOING', 'NOT YET'];
                     const trainingUpdates = {};
@@ -3606,13 +3620,18 @@
                             delete rec[field];
                         }
                     });
+
                     const existing = findExistingRecord('employees', rec);
                     let emp;
-                    if (existing) { Object.assign(existing, rec);
+                    if (existing) {
+                        Object.assign(existing, rec);
                         emp = existing;
-                        updated++; } else { emp = { id: genId(), ...rec };
+                        updated++;
+                    } else {
+                        emp = { id: genId(), ...rec };
                         db.employees.push(emp);
-                        added++; }
+                        added++;
+                    }
                     if (Object.keys(trainingUpdates).length) {
                         if (!db.training[emp.id]) db.training[emp.id] = {};
                         Object.assign(db.training[emp.id], trainingUpdates);
@@ -3624,8 +3643,11 @@
                 if (dbKey === 'training') {
                     const emp = db.employees.find(e => e.name && cleanVal(e.name).toLowerCase() === cleanVal(rec.name)
                         .toLowerCase());
-                    if (!emp) { skipped++;
-                        errors.push(`Row ${idx+2}: no matching employee named "${rec.name}"`); return; }
+                    if (!emp) {
+                        skipped++;
+                        errors.push(`Row ${idx+2}: no matching employee named "${rec.name}"`);
+                        return;
+                    }
                     const validStates = ['DONE', 'ONGOING', 'NOT YET'];
                     if (!db.training[emp.id]) db.training[emp.id] = {};
                     ['sdp', 'bmp', 'mdp'].forEach((f, fi) => {
@@ -3639,6 +3661,7 @@
                     return;
                 }
 
+                // For other modules, try to find by employee number if available
                 if (['newhires', 'regularization', 'separation'].includes(dbKey) && rec.empNo) {
                     const emp = db.employees.find(e => e.empNo && cleanVal(e.empNo).toLowerCase() === cleanVal(rec
                         .empNo).toLowerCase());
@@ -3646,11 +3669,60 @@
                 }
 
                 const existing = findExistingRecord(dbKey, rec);
-                if (existing) { Object.assign(existing, rec);
-                    updated++; } else { db[dbKey].push({ id: genId(), ...rec });
-                    added++; }
+                if (existing) {
+                    Object.assign(existing, rec);
+                    updated++;
+                } else {
+                    db[dbKey].push({ id: genId(), ...rec });
+                    added++;
+                }
             });
+
             return { added, updated, skipped, errors };
+        }
+
+        // Build a flexible field mapping
+        function buildFieldMap(dbKey) {
+            const maps = FIELD_MAPS[dbKey];
+            if (!maps) return {};
+            const map = {};
+            maps.forEach(([field, aliases]) => {
+                // Normalize aliases for matching
+                map[field] = aliases.map(a => normalizeString(a));
+            });
+            return map;
+        }
+
+        function normalizeString(str) {
+            return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
+        function normalizeRow(row, fieldMap, dbKey) {
+            const rec = {};
+            // Normalize row keys
+            const normKeys = {};
+            Object.keys(row).forEach(k => {
+                normKeys[normalizeString(k)] = row[k];
+            });
+
+            Object.keys(fieldMap).forEach(field => {
+                const aliases = fieldMap[field];
+                let found;
+                for (const alias of aliases) {
+                    if (normKeys[alias] !== undefined && normKeys[alias] !== null && normKeys[alias] !== '') {
+                        found = normKeys[alias];
+                        break;
+                    }
+                }
+                rec[field] = found !== undefined ? found : '';
+            });
+
+            // Convert date fields
+            (IMPORT_DATE_FIELDS[dbKey] || []).forEach(f => {
+                if (rec[f]) rec[f] = excelValueToISODate(rec[f]);
+            });
+
+            return rec;
         }
 
         function rowHasMinimumData(dbKey, rec) {
@@ -3805,27 +3877,6 @@
             regularization: ['hireDate', 'probationEnd'],
             separation: ['dateSeparated', 'lastWorkingDay'],
         };
-
-        function normalizeImportRow(row, dbKey) {
-            const maps = FIELD_MAPS[dbKey];
-            if (!maps) return row;
-            const rec = {};
-            const rowLower = {};
-            Object.keys(row).forEach(k => { rowLower[normHeader(k)] = row[k]; });
-            maps.forEach(([field, aliases]) => {
-                let found;
-                for (const alias of aliases) {
-                    const key = normHeader(alias);
-                    if (rowLower[key] !== undefined && rowLower[key] !== null && rowLower[key] !== '') { found =
-                            rowLower[key]; break; }
-                }
-                rec[field] = found !== undefined ? found : '';
-            });
-            (IMPORT_DATE_FIELDS[dbKey] || []).forEach(f => {
-                if (rec[f]) rec[f] = excelValueToISODate(rec[f]);
-            });
-            return rec;
-        }
 
         function findExistingRecord(dbKey, rec) {
             if (dbKey === 'employees') {
@@ -3982,10 +4033,8 @@
                 return;
             }
 
-            // Build worksheet with professional formatting
             const wsData = [headers, ...rows];
             const ws = XLSX.utils.aoa_to_sheet(wsData);
-            // Auto-size columns
             ws['!cols'] = headers.map((h, i) => {
                 let maxLen = h.length;
                 rows.forEach(row => {
@@ -4191,7 +4240,6 @@
                 await saveDB();
             }
 
-            // Check session
             const user = getSession();
             if (user) {
                 const valid = db.users.some(u => u.username === user.username && u.password === user.password);
@@ -4208,7 +4256,6 @@
                 document.getElementById('main').style.display = 'none';
             }
 
-            // Always clear login fields
             document.getElementById('login-user').value = '';
             document.getElementById('login-pass').value = '';
 
@@ -4227,7 +4274,6 @@
                 renderUsers();
             }
 
-            // Enter key to login
             document.getElementById('login-pass').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') login();
             });
