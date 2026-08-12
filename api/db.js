@@ -1,11 +1,12 @@
 // ================================================================
 //  BEAN'S HRIS — Vercel Serverless API for JSONBin
-//  Uses Master Key (full read/write access).
-//  For better security, replace with a scoped Access Key later.
+//  Uses Master Key (full read/write permission).
+//  For better security, use Environment Variables later.
 // ================================================================
 
+// ── Your keys (exactly as shown in your JSONBin dashboard) ──
 const BIN_ID = '6a7bdb34da38895dfed88f47';
-const ACCESS_KEY = '$2a$10$3TlwFttBFpegTK.k6TnP5uGlWVKLNZ7EwFn2GAhdLugBPQ0jDh9Ti'; // Master Key
+const ACCESS_KEY = '$2a$10$3TlwFttBFpegTK.k6TnP5uGLWVKLNZ7EwfN2GAhdLugBPQ0jDh9Ti'; // Master Key
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
@@ -85,7 +86,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // ── Method not allowed ──
     res.setHeader('Allow', 'GET, PUT');
     return res.status(405).json({
       success: false,
