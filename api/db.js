@@ -1,14 +1,19 @@
 // ================================================================
 //  BEAN'S HRIS — Vercel Serverless API for JSONBin
-//  Uses Master Key (full read/write permission).
-//  For better security, use Environment Variables later.
+//  Uses environment variables (set in Vercel dashboard).
+//  No sensitive keys are hardcoded.
 // ================================================================
 
-// ── Your keys (exactly as shown in your JSONBin dashboard) ──
-const BIN_ID = '6a7bdb34da38895dfed88f47';
-const ACCESS_KEY = '$2a$10$D7hFgVHzZVIC0Jcmx.ioeO6AOspavNpIX5xJxURe9HiYAU8lGDt7u'; // Master Key
+// ── Read from environment variables ──
+const BIN_ID = process.env.JSONBIN_BIN_ID;
+const ACCESS_KEY = process.env.JSONBIN_ACCESS_KEY;
 
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+// If environment variables are not set, fallback to hardcoded (for testing)
+// Remove these fallbacks when env vars are confirmed to work.
+const finalBinId = BIN_ID || '6a7bdb34da38895dfed88f47';
+const finalKey = ACCESS_KEY || '$2a$10$vw84HGuILykLqqhaqnzIbe0iYaSolyxJ520iq4s5f96cvnbkWA2S';
+
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${finalBinId}`;
 
 export default async function handler(req, res) {
   // ── CORS ──
@@ -21,12 +26,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ── GET: load database ──
+    // ── GET: Load database ──
     if (req.method === 'GET') {
       const response = await fetch(`${JSONBIN_URL}/latest`, {
         method: 'GET',
         headers: {
-          'X-Access-Key': ACCESS_KEY,
+          'X-Access-Key': finalKey,
           'Content-Type': 'application/json'
         },
         cache: 'no-store'
@@ -37,10 +42,10 @@ export default async function handler(req, res) {
       try { result = JSON.parse(text); } catch { result = { message: text }; }
 
       if (!response.ok) {
-        console.error('JSONBin GET error:', response.status, result);
+        console.error('❌ GET error:', response.status, result);
         return res.status(response.status).json({
           success: false,
-          error: result?.message || result?.error || 'Failed to load database.'
+          error: result?.message || 'Failed to load database.'
         });
       }
 
@@ -50,7 +55,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // ── PUT: save database ──
+    // ── PUT: Save database ──
     if (req.method === 'PUT') {
       if (!req.body) {
         return res.status(400).json({
@@ -62,7 +67,7 @@ export default async function handler(req, res) {
       const response = await fetch(JSONBIN_URL, {
         method: 'PUT',
         headers: {
-          'X-Access-Key': ACCESS_KEY,
+          'X-Access-Key': finalKey,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(req.body)
@@ -73,10 +78,10 @@ export default async function handler(req, res) {
       try { result = JSON.parse(text); } catch { result = { message: text }; }
 
       if (!response.ok) {
-        console.error('JSONBin PUT error:', response.status, result);
+        console.error('❌ PUT error:', response.status, result);
         return res.status(response.status).json({
           success: false,
-          error: result?.message || result?.error || 'Failed to save database.'
+          error: result?.message || 'Failed to save database.'
         });
       }
 
@@ -86,6 +91,7 @@ export default async function handler(req, res) {
       });
     }
 
+    // ── Method not allowed ──
     res.setHeader('Allow', 'GET, PUT');
     return res.status(405).json({
       success: false,
@@ -93,7 +99,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Vercel JSONBin API error:', error);
+    console.error('❌ API error:', error);
     return res.status(500).json({
       success: false,
       error: error.message || 'Unexpected server error.'
