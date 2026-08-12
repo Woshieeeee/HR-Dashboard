@@ -328,6 +328,12 @@
 
   /* ── Chart row for new charts ── */
   .chart-grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: 16px; margin-bottom: 24px; }
+
+  /* JSONBin cloud status */
+  #cloud-badge { display:flex; align-items:center; gap:6px; }
+  #cloud-badge.cloud-connected { color:var(--success); }
+  #cloud-badge.cloud-loading, #cloud-badge.cloud-saving { color:var(--warning); }
+  #cloud-badge.cloud-error { color:var(--danger); }
 </style>
 </head>
 <body>
@@ -356,7 +362,7 @@
     <div class="nav-item" data-page="reports"><i class="fa-solid fa-chart-bar"></i> Reports</div>
     <div class="nav-item" data-page="settings"><i class="fa-solid fa-gear"></i> Settings</div>
   </div>
-  <div class="sidebar-footer"><i class="fa-solid fa-lock"></i> Offline — All data stored locally<br><span style="opacity:0.6">Build 2026-07-30-datefix</span></div>
+  <div class="sidebar-footer"><i class="fa-solid fa-cloud"></i> JSONBin — Cloud Database<br><span id="cloud-status" style="opacity:0.75">Connecting...</span><br><span style="opacity:0.6">Build 2026-08-12-jsonbin</span></div>
 </nav>
 
 <!-- MAIN -->
@@ -365,6 +371,7 @@
     <h1 id="page-title">Dashboard</h1>
     <div class="topbar-actions">
       <div class="date-badge" id="date-display"></div>
+      <div class="date-badge" id="cloud-badge" title="JSONBin cloud database status"><i class="fa-solid fa-cloud"></i> <span id="cloud-badge-text">Connecting...</span></div>
       <button class="btn-icon" id="dark-toggle" title="Toggle Dark Mode"><i class="fa-solid fa-moon"></i></button>
       <button class="btn-icon" id="menu-toggle" style="display:none"><i class="fa-solid fa-bars"></i></button>
     </div>
@@ -620,9 +627,11 @@
         <div class="settings-card">
           <h3><i class="fa-solid fa-database"></i> Database Management</h3>
           <div style="display:flex;flex-direction:column;gap:10px;">
-            <button class="btn btn-primary" onclick="backupJSON()"><i class="fa-solid fa-download"></i> Backup Database</button>
-            <label class="btn btn-success" style="cursor:pointer"><i class="fa-solid fa-upload"></i> Restore Database <input type="file" accept=".bak,.json" style="display:none" onchange="restoreJSON(this)"></label>
-            <button class="btn btn-danger" onclick="resetDatabase()"><i class="fa-solid fa-trash"></i> Reset Database</button>
+            <button class="btn btn-primary" onclick="syncCloudDatabase()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync to Cloud</button>
+            <button class="btn btn-outline" onclick="reloadCloudDatabase()"><i class="fa-solid fa-cloud-arrow-down"></i> Reload from Cloud</button>
+            <button class="btn btn-success" onclick="backupJSON()"><i class="fa-solid fa-download"></i> Backup Database</button>
+            <label class="btn btn-outline" style="cursor:pointer"><i class="fa-solid fa-upload"></i> Restore Database <input type="file" accept=".bak,.json" style="display:none" onchange="restoreJSON(this)"></label>
+            <button class="btn btn-danger" onclick="resetDatabase()"><i class="fa-solid fa-trash"></i> Reset Cloud Database</button>
           </div>
         </div>
         <div class="settings-card">
@@ -635,7 +644,7 @@
         <div class="settings-card">
           <h3><i class="fa-solid fa-info-circle"></i> System Info</h3>
           <div style="font-size:13px;color:var(--gray-600);line-height:2;">
-            <div><strong>Version:</strong> 1.0.0</div>
+            <div><strong>Version:</strong> 2.0 JSONBin Cloud</div>
             <div><strong>Storage Key:</strong> beans_hris_v1</div>
             <div><strong>Mode:</strong> Fully Offline</div>
             <div><strong>Built:</strong> 2025</div>
@@ -681,8 +690,20 @@
 // ============================================================
 // DATA STORE
 // ============================================================
-const STORAGE_KEY = 'beans_hris_v1';
-let db = {
+// ============================================================
+// DATA STORE — JSONBIN CLOUD DATABASE
+// ============================================================
+// Bin ID supplied for this Bean's HRIS project.
+const JSONBIN_BIN_ID = '6a7bd3caf5f4af5e2909f46b';
+const JSONBIN_API_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
+// IMPORTANT:
+// Create a JSONBin Access Key with permission to READ and UPDATE this bin,
+// then paste it below. Use an Access Key rather than your Master Key because
+// this application is a browser-side single-file app.
+const JSONBIN_ACCESS_KEY = '6a7bd3caf5f4af5e2909f46b';
+
+const DEFAULT_DB = {
   employees: [],
   recruitment: [],
   applicants: [],
@@ -693,18 +714,173 @@ let db = {
   settings: { darkMode: false }
 };
 
-function loadDB() {
+let db = structuredClone(DEFAULT_DB);
+let cloudReady = false;
+let cloudSaving = false;
+let saveQueue = Promise.resolve();
+
+function updateCloudStatus(state, message) {
+  const badge = document.getElementById('cloud-badge');
+  const badgeText = document.getElementById('cloud-badge-text');
+  const sidebar = document.getElementById('cloud-status');
+
+  const states = {
+    connected: { icon: 'fa-cloud', text: message || 'Cloud Connected' },
+    loading: { icon: 'fa-spinner fa-spin', text: message || 'Connecting...' },
+    saving: { icon: 'fa-cloud-arrow-up', text: message || 'Saving...' },
+    error: { icon: 'fa-triangle-exclamation', text: message || 'Cloud Error' },
+    offline: { icon: 'fa-cloud-slash', text: message || 'Not Configured' }
+  };
+  const current = states[state] || states.error;
+
+  if (badge) {
+    badge.classList.remove('cloud-connected','cloud-loading','cloud-saving','cloud-error');
+    if (state === 'connected') badge.classList.add('cloud-connected');
+    if (state === 'loading') badge.classList.add('cloud-loading');
+    if (state === 'saving') badge.classList.add('cloud-saving');
+    if (state === 'error') badge.classList.add('cloud-error');
+    badge.innerHTML = `<i class="fa-solid ${current.icon}"></i> <span id="cloud-badge-text">${current.text}</span>`;
+  }
+
+  if (sidebar) sidebar.textContent = current.text;
+}
+
+function jsonBinHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'X-Access-Key': JSONBIN_ACCESS_KEY
+  };
+}
+
+function validateCloudConfig() {
+  return JSONBIN_BIN_ID &&
+    JSONBIN_API_URL &&
+    JSONBIN_ACCESS_KEY &&
+    !JSONBIN_ACCESS_KEY.includes('PASTE_YOUR_JSONBIN_ACCESS_KEY');
+}
+
+async function loadDB() {
+  if (!validateCloudConfig()) {
+    cloudReady = false;
+    updateCloudStatus('offline', 'Access Key Required');
+    console.warn('JSONBin Access Key is not configured. Paste your Access Key into JSONBIN_ACCESS_KEY.');
+    return false;
+  }
+
+  updateCloudStatus('loading', 'Connecting...');
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      db = Object.assign(db, parsed);
+    const response = await fetch(`${JSONBIN_API_URL}/latest`, {
+      method: 'GET',
+      headers: {
+        'X-Access-Key': JSONBIN_ACCESS_KEY
+      },
+      cache: 'no-store'
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || `JSONBin request failed (${response.status})`);
     }
-  } catch(e) { console.error('Load error', e); }
+
+    const remote = result.record || {};
+
+    db = {
+      ...structuredClone(DEFAULT_DB),
+      ...remote
+    };
+
+    db.employees = Array.isArray(db.employees) ? db.employees : [];
+    db.recruitment = Array.isArray(db.recruitment) ? db.recruitment : [];
+    db.applicants = Array.isArray(db.applicants) ? db.applicants : [];
+    db.newhires = Array.isArray(db.newhires) ? db.newhires : [];
+    db.regularization = Array.isArray(db.regularization) ? db.regularization : [];
+    db.separation = Array.isArray(db.separation) ? db.separation : [];
+    db.training = db.training && typeof db.training === 'object' && !Array.isArray(db.training) ? db.training : {};
+    db.settings = db.settings && typeof db.settings === 'object' ? db.settings : { darkMode:false };
+
+    cloudReady = true;
+    updateCloudStatus('connected', 'Cloud Connected');
+    console.log(`Bean's HRIS loaded from JSONBin: ${JSONBIN_BIN_ID}`);
+    return true;
+  } catch (error) {
+    cloudReady = false;
+    updateCloudStatus('error', 'Connection Failed');
+    console.error('JSONBin load error:', error);
+    toast(`Cloud database error: ${error.message}`, 'error', 6000);
+    return false;
+  }
 }
+
 function saveDB() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch(e) { toast('Storage error: '+e.message, 'error'); }
+  if (!validateCloudConfig()) {
+    updateCloudStatus('offline', 'Access Key Required');
+    return Promise.resolve(false);
+  }
+
+  // Queue saves so multiple existing saveDB() calls from the HRIS do not
+  // create simultaneous PUT requests that can overwrite one another.
+  const snapshot = JSON.stringify(db);
+
+  saveQueue = saveQueue
+    .catch(() => {})
+    .then(async () => {
+      cloudSaving = true;
+      updateCloudStatus('saving', 'Saving...');
+
+      const response = await fetch(JSONBIN_API_URL, {
+        method: 'PUT',
+        headers: jsonBinHeaders(),
+        body: snapshot
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || `JSONBin save failed (${response.status})`);
+      }
+
+      cloudReady = true;
+      updateCloudStatus('connected', 'Cloud Connected');
+      return true;
+    })
+    .catch(error => {
+      cloudReady = false;
+      updateCloudStatus('error', 'Save Failed');
+      console.error('JSONBin save error:', error);
+      toast(`Cloud save failed: ${error.message}`, 'error', 6000);
+      return false;
+    })
+    .finally(() => {
+      cloudSaving = false;
+    });
+
+  return saveQueue;
 }
+
+async function syncCloudDatabase() {
+  if (!validateCloudConfig()) {
+    toast('Add your JSONBin Access Key to the code first.', 'warning', 5000);
+    return;
+  }
+  toast('Saving database to JSONBin...', 'info', 1800);
+  const ok = await saveDB();
+  if (ok) toast('Database synchronized successfully.', 'success');
+}
+
+async function reloadCloudDatabase() {
+  if (!validateCloudConfig()) {
+    toast('Add your JSONBin Access Key to the code first.', 'warning', 5000);
+    return;
+  }
+  const ok = await loadDB();
+  if (ok) {
+    refreshDashboard();
+    toast('Database reloaded from JSONBin.', 'success');
+  }
+}
+
 function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
 // ============================================================
@@ -883,14 +1059,7 @@ const CHART_COLORS = ['#1a3a8f','#f5c518','#27ae60','#e74c3c','#9b59b6','#2980b9
 // or stray whitespace in the source field values)
 // ============================================================
 function getMasterlistEmployees() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.employees)) return parsed.employees;
-    }
-  } catch(e) { console.error('Masterlist read error', e); }
-  return db.employees || [];
+  return Array.isArray(db.employees) ? db.employees : [];
 }
 
 // Trim + collapse internal whitespace; never throws on null/undefined
@@ -2352,32 +2521,34 @@ function backupJSON() {
   toast('Database backup downloaded','success');
 }
 
-function restoreJSON(input) {
+async function restoreJSON(input) {
   const file = input.files[0];
   if (!file) return;
   if (!confirm('Restore this backup? All current data will be replaced.')) { input.value=''; return; }
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const parsed = JSON.parse(e.target.result);
-      db = parsed;
-      saveDB();
+      db = { ...structuredClone(DEFAULT_DB), ...parsed };
+      const saved = await saveDB();
+      if (!saved) throw new Error('Cloud database save failed.');
       refreshDashboard();
-      toast('Database restored successfully','success');
+      toast('Database restored successfully to JSONBin','success');
     } catch(err) { toast('Invalid backup file. Please use a file exported from Bean\'s HRIS.','error'); }
   };
   reader.readAsText(file);
   input.value = '';
 }
 
-function resetDatabase() {
+async function resetDatabase() {
   if (!confirm('⚠️ RESET DATABASE?\n\nThis will permanently delete ALL records.\n\nType "RESET" to confirm.')) return;
   const conf = prompt('Type RESET to confirm:');
   if (conf !== 'RESET') { toast('Reset cancelled','info'); return; }
   db = { employees:[], recruitment:[], applicants:[], newhires:[], regularization:[], separation:[], training:{}, settings:{ darkMode:false } };
-  saveDB();
+  const saved = await saveDB();
+  if (!saved) return;
   refreshDashboard();
-  toast('Database has been reset','warning');
+  toast('Cloud database has been reset','warning');
 }
 
 // ============================================================
@@ -2508,8 +2679,8 @@ document.getElementById('profile-overlay').addEventListener('click', e => { if (
 // ============================================================
 // INIT
 // ============================================================
-function init() {
-  loadDB();
+async function init() {
+  await loadDB();
   updateDateDisplay();
   setInterval(updateDateDisplay, 60000);
 
@@ -2536,7 +2707,10 @@ function init() {
   refreshDashboard();
 }
 
-init();
+init().catch(err => {
+  console.error('HRIS initialization error:', err);
+  toast('HRIS initialization failed: ' + err.message, 'error', 6000);
+});
 </script>
 </body>
 </html>
