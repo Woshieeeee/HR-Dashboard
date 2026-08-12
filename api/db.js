@@ -3,7 +3,7 @@ export default async function handler(req, res) {
   // Your JSONBin Bin ID
   const BIN_ID =
     process.env.JSONBIN_BIN_ID ||
-    '6a7bd3caf5f4af5e2909f46b';
+    '6a7bdb34da38895dfed88f47';
 
   // Secret — keep this in Vercel Environment Variables
   const ACCESS_KEY =
