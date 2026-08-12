@@ -1,11 +1,11 @@
 // ================================================================
 //  BEAN'S HRIS — Vercel Serverless API for JSONBin
-//  NEW BIN ID: 6a7bec52f5f4af5e290a3eff
-//  Access Key: $2a$10$vw84HGuILykLqqhaqnzIbe0iYaSolyxJ520iq4s5f96cvnbkWA2S
+//  BIN ID: 6a7bec52f5f4af5e290a3eff
+//  MASTER KEY (full read/write)
 // ================================================================
 
 const BIN_ID = '6a7bec52f5f4af5e290a3eff';
-const ACCESS_KEY = '$2a$10$vw84HGuILykLqqhaqnzIbe0iYaSolyxJ520iq4s5f96cvnbkWA2S';
+const ACCESS_KEY = '$2a$10$3TlwFttBFpegTK.k6TnP5uGlWVKLNZ7EwFn2GAhdLugBPQ0jDh9Ti';
 
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
@@ -17,6 +17,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   console.log(`🔑 Using key: ${ACCESS_KEY.slice(0, 10)}... (length: ${ACCESS_KEY.length})`);
+  console.log(`📦 Bin: ${BIN_ID}`);
 
   try {
     if (req.method === 'GET') {
