@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
     </script>
     <style>
-        /* ── reset & base ── */
+        /* ── Reset & base ── */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -61,7 +61,7 @@
             font-size: 14px;
         }
 
-        /* ── sidebar ── */
+        /* ── Sidebar ── */
         #sidebar {
             width: var(--sidebar-w);
             background: linear-gradient(180deg, var(--navy) 0%, var(--navy-mid) 100%);
@@ -153,7 +153,7 @@
             font-size: 11px;
         }
 
-        /* ── main ── */
+        /* ── Main ── */
         #main {
             margin-left: var(--sidebar-w);
             flex: 1;
@@ -231,6 +231,7 @@
             color: var(--danger);
         }
 
+        /* ── content ── */
         #content {
             flex: 1;
             padding: 24px;
@@ -620,7 +621,7 @@
             border-color: var(--royal);
         }
 
-        /* ── table ── */
+        /* ── tables ── */
         .table-wrap {
             overflow-x: auto;
             border-radius: var(--radius);
@@ -1304,9 +1305,71 @@
         .tab-btn:hover:not(.active) {
             color: var(--gray-800);
         }
+
+        /* Login overlay */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #login-overlay.open {
+            display: flex;
+        }
+        .login-box {
+            background: var(--white);
+            border-radius: 14px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .login-box h2 {
+            color: var(--navy);
+            margin-bottom: 20px;
+        }
+        .login-box .form-group {
+            text-align: left;
+        }
+        .login-box .btn {
+            width: 100%;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .login-box .form-control {
+            width: 100%;
+        }
+        .login-error {
+            color: var(--danger);
+            font-size: 13px;
+            margin-top: 8px;
+            display: none;
+        }
     </style>
 </head>
 <body>
+
+    <!-- ===== LOGIN OVERLAY ===== -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2><i class="fa-solid fa-seedling" style="color:var(--gold)"></i> Bean's HRIS</h2>
+            <p style="color:var(--gray-400);margin-bottom:20px;">Please log in to continue</p>
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input class="form-control" id="login-user" placeholder="admin" value="admin">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+                <label class="form-label">Password</label>
+                <input class="form-control" id="login-pass" type="password" placeholder="••••••••" value="admin123">
+            </div>
+            <div class="login-error" id="login-error">Invalid username or password</div>
+            <button class="btn btn-primary" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> Log in</button>
+        </div>
+    </div>
 
     <!-- ===== SIDEBAR ===== -->
     <nav id="sidebar">
@@ -1336,6 +1399,9 @@
             <i class="fa-solid fa-cloud"></i> JSONBin — Cloud Database<br />
             <span id="cloud-status" style="opacity:0.75">Connecting…</span><br />
             <span style="opacity:0.6">Build 2026-08-12-netlify</span>
+            <div style="margin-top:6px;">
+                <button class="btn btn-outline btn-sm" onclick="logout()" style="color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.2);padding:2px 10px;font-size:10px;"><i class="fa-solid fa-sign-out-alt"></i> Logout</button>
+            </div>
         </div>
     </nav>
 
@@ -1380,7 +1446,7 @@
                         <label class="btn btn-success" title="Import Excel"><i class="fa-solid fa-file-excel"></i> Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this,'employees')" /></label>
                         <label class="btn btn-outline" title="Import CSV"><i class="fa-solid fa-file-csv"></i> Import CSV<input type="file" accept=".csv" style="display:none" onchange="importCSV(this,'employees')" /></label>
                         <button class="btn btn-outline" onclick="downloadTemplate('employees')" title="Download Excel Template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
-                        <button class="btn btn-outline" onclick="exportCSV('employees')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('employees')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <div class="toolbar">
@@ -1422,7 +1488,7 @@
                         <button class="btn btn-primary" onclick="openModal('rec')"><i class="fa-solid fa-plus"></i> Add Vacancy</button>
                         <label class="btn btn-success" title="Import Excel"><i class="fa-solid fa-file-excel"></i> Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this,'recruitment')" /></label>
                         <button class="btn btn-outline" onclick="downloadTemplate('recruitment')" title="Download Excel Template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
-                        <button class="btn btn-outline" onclick="exportCSV('recruitment')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('recruitment')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <div class="toolbar">
@@ -1447,7 +1513,7 @@
                         <button class="btn btn-primary" onclick="openModal('app')"><i class="fa-solid fa-plus"></i> Add Applicant</button>
                         <label class="btn btn-success" title="Import Excel"><i class="fa-solid fa-file-excel"></i> Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this,'applicants')" /></label>
                         <button class="btn btn-outline" onclick="downloadTemplate('applicants')" title="Download Excel Template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
-                        <button class="btn btn-outline" onclick="exportCSV('applicants')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('applicants')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <div class="toolbar">
@@ -1476,7 +1542,7 @@
                         <button class="btn btn-primary" onclick="openModal('nh')"><i class="fa-solid fa-plus"></i> Add New Hire</button>
                         <label class="btn btn-success" title="Import Excel"><i class="fa-solid fa-file-excel"></i> Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this,'newhires')" /></label>
                         <button class="btn btn-outline" onclick="downloadTemplate('newhires')" title="Download Excel Template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
-                        <button class="btn btn-outline" onclick="exportCSV('newhires')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('newhires')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <div class="toolbar">
@@ -1500,7 +1566,7 @@
                         <button class="btn btn-primary" onclick="openModal('reg')"><i class="fa-solid fa-plus"></i> Add Record</button>
                         <label class="btn btn-success" title="Import Excel"><i class="fa-solid fa-file-excel"></i> Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this,'regularization')" /></label>
                         <button class="btn btn-outline" onclick="downloadTemplate('regularization')" title="Download Excel Template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
-                        <button class="btn btn-outline" onclick="exportCSV('regularization')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('regularization')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <div class="toolbar">
@@ -1524,7 +1590,7 @@
                         <button class="btn btn-primary" onclick="openModal('sep')"><i class="fa-solid fa-plus"></i> Add Separation</button>
                         <label class="btn btn-success" title="Import Excel"><i class="fa-solid fa-file-excel"></i> Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this,'separation')" /></label>
                         <button class="btn btn-outline" onclick="downloadTemplate('separation')" title="Download Excel Template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
-                        <button class="btn btn-outline" onclick="exportCSV('separation')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('separation')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <p style="font-size:12px;color:var(--gray-400);margin-bottom:8px;">Auto-populated when an employee's status is set to Resigned, Terminated, Retired, End of Contract, or Separated. History is archived permanently.</p>
@@ -1548,7 +1614,7 @@
                     <div class="section-actions">
                         <label class="btn btn-success" title="Import Excel"><i class="fa-solid fa-file-excel"></i> Import Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this,'training')" /></label>
                         <button class="btn btn-outline" onclick="downloadTemplate('training')" title="Download Excel Template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
-                        <button class="btn btn-outline" onclick="exportCSV('training')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('training')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <p style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">Click a tag to cycle: NOT YET → ONGOING → DONE. Changes save automatically.</p>
@@ -1568,7 +1634,7 @@
                 <div class="section-header">
                     <div class="section-title"><i class="fa-solid fa-award"></i> Longevity Awards</div>
                     <div class="section-actions">
-                        <button class="btn btn-outline" onclick="exportCSV('longevity')"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        <button class="btn btn-outline" onclick="exportExcel('longevity')"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                     </div>
                 </div>
                 <p style="font-size:12px;color:var(--gray-400);margin-bottom:14px;">Milestones computed from Probationary Date. Shows each employee's <strong>next upcoming</strong> award only.</p>
@@ -1584,12 +1650,12 @@
             <div class="page" id="page-reports">
                 <div class="section-header"><div class="section-title"><i class="fa-solid fa-chart-bar"></i> Reports &amp; Export</div></div>
                 <div class="report-grid" id="report-grid">
-                    <div class="report-card" onclick="exportCSV('employees')"><i class="fa-solid fa-users" style="color:var(--royal)"></i><div class="rc-title">Employee Report</div><div class="rc-desc">Export full employee masterlist as CSV</div></div>
-                    <div class="report-card" onclick="exportCSV('recruitment')"><i class="fa-solid fa-briefcase" style="color:var(--success)"></i><div class="rc-title">Recruitment Report</div><div class="rc-desc">Export all open vacancies as CSV</div></div>
-                    <div class="report-card" onclick="exportCSV('applicants')"><i class="fa-solid fa-user-check" style="color:var(--warning)"></i><div class="rc-title">Applicant Report</div><div class="rc-desc">Export applicant pipeline as CSV</div></div>
-                    <div class="report-card" onclick="exportCSV('separation')"><i class="fa-solid fa-user-minus" style="color:var(--danger)"></i><div class="rc-title">Separation Report</div><div class="rc-desc">Export separation records as CSV</div></div>
-                    <div class="report-card" onclick="exportCSV('regularization')"><i class="fa-solid fa-clipboard-check" style="color:var(--info)"></i><div class="rc-title">Regularization Report</div><div class="rc-desc">Export regularization records as CSV</div></div>
-                    <div class="report-card" onclick="exportCSV('newhires')"><i class="fa-solid fa-user-plus" style="color:var(--royal)"></i><div class="rc-title">New Hires Report</div><div class="rc-desc">Export new hire monitoring as CSV</div></div>
+                    <div class="report-card" onclick="exportExcel('employees')"><i class="fa-solid fa-users" style="color:var(--royal)"></i><div class="rc-title">Employee Report</div><div class="rc-desc">Export full employee masterlist as Excel</div></div>
+                    <div class="report-card" onclick="exportExcel('recruitment')"><i class="fa-solid fa-briefcase" style="color:var(--success)"></i><div class="rc-title">Recruitment Report</div><div class="rc-desc">Export all vacancies as Excel</div></div>
+                    <div class="report-card" onclick="exportExcel('applicants')"><i class="fa-solid fa-user-check" style="color:var(--warning)"></i><div class="rc-title">Applicant Report</div><div class="rc-desc">Export applicant pipeline as Excel</div></div>
+                    <div class="report-card" onclick="exportExcel('separation')"><i class="fa-solid fa-user-minus" style="color:var(--danger)"></i><div class="rc-title">Separation Report</div><div class="rc-desc">Export separation records as Excel</div></div>
+                    <div class="report-card" onclick="exportExcel('regularization')"><i class="fa-solid fa-clipboard-check" style="color:var(--info)"></i><div class="rc-title">Regularization Report</div><div class="rc-desc">Export regularization records as Excel</div></div>
+                    <div class="report-card" onclick="exportExcel('newhires')"><i class="fa-solid fa-user-plus" style="color:var(--royal)"></i><div class="rc-title">New Hires Report</div><div class="rc-desc">Export new hire monitoring as Excel</div></div>
                     <div class="report-card" onclick="backupJSON()"><i class="fa-solid fa-database" style="color:var(--gold)"></i><div class="rc-title">Backup Database</div><div class="rc-desc">Download a full backup of all records</div></div>
                     <div class="report-card" onclick="document.getElementById('restore-json-btn').click()"><i class="fa-solid fa-upload" style="color:var(--success)"></i><div class="rc-title">Restore Database</div><div class="rc-desc">Restore from a previously saved backup</div></div>
                     <div class="report-card" onclick="window.print()"><i class="fa-solid fa-print" style="color:var(--gray-400)"></i><div class="rc-title">Print Report</div><div class="rc-desc">Print the current dashboard view</div></div>
@@ -1626,6 +1692,16 @@
                             <div><strong>Built:</strong> 2025</div>
                         </div>
                     </div>
+                    <!-- User Management Card -->
+                    <div class="settings-card" id="user-mgmt-card">
+                        <h3><i class="fa-solid fa-users-gear"></i> User Management <span style="font-size:11px;font-weight:400;color:var(--gray-400)">(Admin only)</span></h3>
+                        <div style="margin-bottom:10px;">
+                            <button class="btn btn-primary btn-sm" onclick="openUserModal()"><i class="fa-solid fa-plus"></i> Add User</button>
+                        </div>
+                        <div id="user-list">
+                            <!-- populated by renderUsers() -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1647,6 +1723,27 @@
         </div>
     </div>
 
+    <!-- User Management Modal -->
+    <div class="modal-overlay" id="user-modal-overlay">
+        <div class="modal" id="user-modal-box">
+            <div class="modal-header">
+                <div class="modal-title" id="user-modal-title">Add User</div>
+                <button class="modal-close" onclick="closeUserModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="user-modal-body">
+                <div class="form-grid">
+                    <div class="form-group full"><label class="form-label">Username</label><input class="form-control" id="user-username" /></div>
+                    <div class="form-group full"><label class="form-label">Password</label><input class="form-control" type="password" id="user-password" /></div>
+                    <div class="form-group full"><label class="form-label">Role</label><select class="form-control" id="user-role"><option value="admin">Admin</option><option value="user">User</option></select></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeUserModal()">Cancel</button>
+                <button class="btn btn-primary" id="user-modal-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== TOAST ===== -->
     <div id="toast-container"></div>
 
@@ -1664,9 +1761,7 @@
 
     <script>
         // ================================================================
-        //  BEAN'S HRIS — NETLIFY + JSONBIN EDITION
-        //  All database operations go through the Netlify function at /api/db
-        //  which is redirected to /.netlify/functions/db via netlify.toml
+        //  BEAN'S HRIS — NETLIFY + JSONBIN + AUTH + EXPORT EXCEL
         // ================================================================
 
         // ── Default empty database ──
@@ -1678,7 +1773,9 @@
             regularization: [],
             separation: [],
             training: {},
-            settings: { darkMode: false }
+            settings: { darkMode: false },
+            users: [],
+            logs: []
         };
 
         let db = structuredClone(DEFAULT_DB);
@@ -1686,7 +1783,190 @@
         let cloudSaving = false;
         let saveQueue = Promise.resolve();
 
-        // ── Update cloud status badge ──
+        // ── Authentication ──
+        const SESSION_KEY = 'hris_session';
+        let currentUser = null;
+
+        function getSession() {
+            const sess = localStorage.getItem(SESSION_KEY);
+            if (sess) {
+                try {
+                    currentUser = JSON.parse(sess);
+                    return currentUser;
+                } catch (e) { currentUser = null; }
+            }
+            return null;
+        }
+
+        function setSession(user) {
+            currentUser = user;
+            localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+        }
+
+        function clearSession() {
+            currentUser = null;
+            localStorage.removeItem(SESSION_KEY);
+        }
+
+        function isAdmin() {
+            return currentUser && currentUser.role === 'admin';
+        }
+
+        function requireAuth() {
+            const user = getSession();
+            if (!user) {
+                document.getElementById('login-overlay').classList.add('open');
+                return false;
+            }
+            document.getElementById('login-overlay').classList.remove('open');
+            return true;
+        }
+
+        function login() {
+            const username = document.getElementById('login-user').value.trim();
+            const password = document.getElementById('login-pass').value.trim();
+            const errorEl = document.getElementById('login-error');
+
+            if (!db.users || db.users.length === 0) {
+                db.users = [{ username: 'admin', password: 'admin123', role: 'admin' }];
+                saveDB();
+            }
+
+            const user = db.users.find(u => u.username === username && u.password === password);
+            if (user) {
+                setSession(user);
+                errorEl.style.display = 'none';
+                document.getElementById('login-overlay').classList.remove('open');
+                addLog('Login', `${username} logged in`);
+                refreshDashboard();
+                renderUsers();
+                toast('Welcome back, ' + username + '!', 'success');
+            } else {
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Invalid username or password';
+            }
+        }
+
+        function logout() {
+            if (currentUser) {
+                addLog('Logout', `${currentUser.username} logged out`);
+            }
+            clearSession();
+            document.getElementById('login-overlay').classList.add('open');
+            toast('Logged out', 'info');
+        }
+
+        // ── Audit Log ──
+        function addLog(action, details) {
+            if (!db.logs) db.logs = [];
+            const entry = {
+                timestamp: new Date().toISOString(),
+                user: currentUser ? currentUser.username : 'system',
+                action,
+                details
+            };
+            db.logs.push(entry);
+            if (db.logs.length > 1000) db.logs.shift();
+            saveDB();
+        }
+
+        // ── User Management ──
+        function renderUsers() {
+            if (!isAdmin()) {
+                document.getElementById('user-list').innerHTML = '<p style="color:var(--gray-400);font-size:13px;">Admin access required.</p>';
+                return;
+            }
+            const container = document.getElementById('user-list');
+            if (!db.users) db.users = [];
+            if (db.users.length === 0) {
+                container.innerHTML = '<p style="color:var(--gray-400);font-size:13px;">No users yet. Add the first admin.</p>';
+                return;
+            }
+            let html = '<table style="width:100%;font-size:13px;"><thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead><tbody>';
+            db.users.forEach((u, idx) => {
+                html += `<tr>
+                    <td>${u.username}</td>
+                    <td><span class="badge ${u.role==='admin'?'badge-gold':'badge-blue'}">${u.role}</span></td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="editUser(${idx})"><i class="fa-solid fa-pen"></i></button>
+                        ${db.users.length > 1 ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${idx})"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        let editingUserIndex = null;
+
+        function openUserModal(index = null) {
+            editingUserIndex = index;
+            const title = document.getElementById('user-modal-title');
+            const username = document.getElementById('user-username');
+            const password = document.getElementById('user-password');
+            const role = document.getElementById('user-role');
+            if (index !== null && db.users[index]) {
+                title.textContent = 'Edit User';
+                username.value = db.users[index].username;
+                password.value = db.users[index].password;
+                role.value = db.users[index].role;
+            } else {
+                title.textContent = 'Add User';
+                username.value = '';
+                password.value = '';
+                role.value = 'user';
+            }
+            document.getElementById('user-modal-overlay').classList.add('open');
+            document.getElementById('user-modal-save-btn').onclick = () => saveUser();
+        }
+
+        function closeUserModal() {
+            document.getElementById('user-modal-overlay').classList.remove('open');
+            editingUserIndex = null;
+        }
+
+        function saveUser() {
+            const username = document.getElementById('user-username').value.trim();
+            const password = document.getElementById('user-password').value.trim();
+            const role = document.getElementById('user-role').value;
+            if (!username || !password) {
+                toast('Username and password are required', 'error');
+                return;
+            }
+            if (!db.users) db.users = [];
+            const exists = db.users.some((u, idx) => u.username === username && idx !== editingUserIndex);
+            if (exists) {
+                toast('Username already exists', 'error');
+                return;
+            }
+            if (editingUserIndex !== null) {
+                db.users[editingUserIndex] = { username, password, role };
+                addLog('User Edit', `Edited user ${username}`);
+            } else {
+                db.users.push({ username, password, role });
+                addLog('User Add', `Added user ${username} (${role})`);
+            }
+            saveDB();
+            renderUsers();
+            closeUserModal();
+            toast('User saved', 'success');
+        }
+
+        function editUser(index) {
+            openUserModal(index);
+        }
+
+        function deleteUser(index) {
+            if (!confirm('Delete this user?')) return;
+            const username = db.users[index].username;
+            db.users.splice(index, 1);
+            addLog('User Delete', `Deleted user ${username}`);
+            saveDB();
+            renderUsers();
+            toast('User deleted', 'warning');
+        }
+
+        // ── Cloud status ──
         function updateCloudStatus(state, message) {
             const badge = document.getElementById('cloud-badge');
             const badgeText = document.getElementById('cloud-badge-text');
@@ -1713,7 +1993,7 @@
             if (sidebar) sidebar.textContent = current.text;
         }
 
-        // ── Load database from Netlify function ──
+        // ── Load from Netlify function ──
         async function loadDB() {
             updateCloudStatus('loading', 'Connecting…');
             try {
@@ -1731,16 +2011,16 @@
                     ...structuredClone(DEFAULT_DB),
                     ...remote
                 };
-                // Ensure arrays
                 db.employees = Array.isArray(db.employees) ? db.employees : [];
                 db.recruitment = Array.isArray(db.recruitment) ? db.recruitment : [];
                 db.applicants = Array.isArray(db.applicants) ? db.applicants : [];
                 db.newhires = Array.isArray(db.newhires) ? db.newhires : [];
                 db.regularization = Array.isArray(db.regularization) ? db.regularization : [];
                 db.separation = Array.isArray(db.separation) ? db.separation : [];
-                db.training = db.training && typeof db.training === 'object' && !Array.isArray(db.training) ? db.training :
-                {};
+                db.training = db.training && typeof db.training === 'object' && !Array.isArray(db.training) ? db.training : {};
                 db.settings = db.settings && typeof db.settings === 'object' ? db.settings : { darkMode: false };
+                db.users = Array.isArray(db.users) ? db.users : [];
+                db.logs = Array.isArray(db.logs) ? db.logs : [];
 
                 cloudReady = true;
                 updateCloudStatus('connected', 'Cloud Connected');
@@ -1755,7 +2035,7 @@
             }
         }
 
-        // ── Save database via Netlify function ──
+        // ── Save via Netlify function ──
         function saveDB() {
             const snapshot = JSON.stringify(db);
 
@@ -1792,7 +2072,6 @@
             return saveQueue;
         }
 
-        // ── Sync / reload helpers ──
         async function syncCloudDatabase() {
             toast('Saving database to cloud…', 'info', 1800);
             const ok = await saveDB();
@@ -1803,6 +2082,7 @@
             const ok = await loadDB();
             if (ok) {
                 refreshDashboard();
+                renderUsers();
                 toast('Database reloaded from cloud.', 'success');
             }
         }
@@ -1934,12 +2214,10 @@
             return 'status-' + (map[s] || 'active');
         }
 
-        // ── Get masterlist ──
         function getMasterlistEmployees() {
             return Array.isArray(db.employees) ? db.employees : [];
         }
 
-        // ── Group counts helper ──
         function groupCounts(list, getter) {
             const map = new Map();
             list.forEach(item => {
@@ -1978,6 +2256,7 @@
         };
 
         function navigate(page) {
+            if (!requireAuth()) return;
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById('page-' + page).classList.add('active');
@@ -1994,6 +2273,7 @@
             if (page === 'separation') renderSeparation();
             if (page === 'training') renderTraining();
             if (page === 'longevity') renderLongevity();
+            if (page === 'settings') renderUsers();
         }
         document.querySelectorAll('.nav-item').forEach(n => {
             n.addEventListener('click', () => navigate(n.dataset.page));
@@ -2005,6 +2285,7 @@
         let chartInstances = {};
 
         function refreshDashboard() {
+            if (!requireAuth()) return;
             reconcileRegularizationDecisions();
             renderKPIs();
             renderCharts();
@@ -2074,7 +2355,6 @@
         function renderCharts() {
             const emps = getMasterlistEmployees().filter(e => !e.archived);
 
-            // Pipeline
             const stages = ['Applied', 'Screening', 'HR Interview', 'Department Interview', 'Final Interview', 'Job Offer',
                 'Requirements', 'Ready to Start', 'Hired', 'Rejected'
             ];
@@ -2087,7 +2367,6 @@
                         x: { ticks: { font: { size: 10 } } } }, responsive: true, maintainAspectRatio: false }
             });
 
-            // Hiring by month
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const hireByMonth = months.map((_, i) => emps.filter(e => e.dateHired && parseLocalDate(e.dateHired)
                 ?.getMonth() === i && parseLocalDate(e.dateHired)?.getFullYear() === new Date().getFullYear()).length);
@@ -2100,7 +2379,6 @@
                     responsive: true, maintainAspectRatio: false }
             });
 
-            // Gender
             const genders = ['Male', 'Female', 'Other'];
             const genderCounted = emps.reduce((acc, e) => {
                 const b = genderBucket(e.gender !== undefined && e.gender !== '' ? e.gender : e.sex);
@@ -2116,7 +2394,6 @@
                             labels: { font: { size: 11 } } } } }
             });
 
-            // Department
             const deptGroups = groupCounts(emps, e => e.dept);
             makeChart('chart-dept', {
                 type: 'bar',
@@ -2126,7 +2403,6 @@
                             ticks: { stepSize: 1 } } }, responsive: true, maintainAspectRatio: false }
             });
 
-            // Business Line
             const blineGroups = groupCounts(emps, e => e.bizLine);
             makeChart('chart-bizline', {
                 type: 'pie',
@@ -2136,7 +2412,6 @@
                             labels: { font: { size: 11 } } } } }
             });
 
-            // Position
             const positionGroups = groupCounts(emps, e => e.designation).slice(0, 10);
             makeChart('chart-position', {
                 type: 'bar',
@@ -2146,7 +2421,6 @@
                         x: { ticks: { font: { size: 10 } } } }, responsive: true, maintainAspectRatio: false }
             });
 
-            // Designation categories
             const desigGroups = ['Head', 'Manager', 'Supervisor', 'Senior Staff', 'Staff', 'Rank and File', 'Others'];
             const desigCounts = desigGroups.map(g => {
                 if (g === 'Others') {
@@ -2168,7 +2442,6 @@
                         x: { ticks: { font: { size: 10 } } } }, responsive: true, maintainAspectRatio: false }
             });
 
-            // Area
             const areaGroups = groupCounts(emps, e => e.area);
             makeChart('chart-area', {
                 type: 'bar',
@@ -2179,7 +2452,6 @@
                     maintainAspectRatio: false }
             });
 
-            // Employment Status
             const empStatuses = ['Regular', 'Probationary', 'Contractual', 'Project-Based', 'Casual', 'Separated',
                 'Resigned', 'Terminated'
             ];
@@ -2200,10 +2472,8 @@
             const todayMD = todayStr.slice(5);
             const now = new Date();
 
-            // Birthday today
             const bdayToday = db.employees.filter(e => !e.archived && e.birthday && e.birthday.slice(5) === todayMD);
 
-            // Upcoming birthdays
             const upcomingBday = db.employees.filter(e => {
                 if (e.archived || !e.birthday) return false;
                 const bday = parseLocalDate(e.birthday);
@@ -2223,21 +2493,18 @@
                 return daysDiff(na, nb);
             });
 
-            // Upcoming interviews
             const upInt = db.applicants.filter(a => {
                 if (!a.interviewDate) return false;
                 const diff = daysDiff(a.interviewDate, todayStr);
                 return diff >= 0 && diff <= 7;
             }).sort((a, b) => parseLocalDate(a.interviewDate) - parseLocalDate(b.interviewDate));
 
-            // Upcoming start dates
             const upStart = db.newhires.filter(n => {
                 if (!n.startDate) return false;
                 const diff = daysDiff(n.startDate, todayStr);
                 return diff >= 0 && diff <= 14;
             }).sort((a, b) => parseLocalDate(a.startDate) - parseLocalDate(b.startDate));
 
-            // Due for regularization
             const dueReg = db.regularization.filter(r => {
                 if (r.decision === 'Regularized' || r.decision === 'Separation') return false;
                 const probEnd = r.probationEnd || addMonths(r.hireDate, 6);
@@ -2247,7 +2514,6 @@
                 return d <= 30;
             }).sort((a, b) => parseLocalDate(a.__dueProbEnd) - parseLocalDate(b.__dueProbEnd));
 
-            // Recent separations
             const recentSep = db.separation.filter(s => {
                 if (!s.dateSeparated) return false;
                 const d = daysDiff(todayStr, s.dateSeparated);
@@ -2371,7 +2637,6 @@
             const status = cleanVal(emp.status).toLowerCase();
             const terminal = isSeparationStatus(status);
 
-            // New Hire
             let nh = db.newhires.find(n => n.employeeId === emp.id);
             if (status === 'casual trainee' || nh) {
                 const rec = {
@@ -2388,7 +2653,6 @@
                 else db.newhires.push({ id: genId(), ...rec });
             }
 
-            // Regularization
             let reg = db.regularization.find(r => r.employeeId === emp.id);
             if (status === 'probationary' || status === 'regular' || reg) {
                 const rec = {
@@ -2408,7 +2672,6 @@
                     ...rec });
             }
 
-            // Separation
             if (terminal) {
                 emp.archived = true;
                 let sep = db.separation.find(s => s.employeeId === emp.id);
@@ -2764,6 +3027,9 @@
                 toast('Record added', 'success');
             }
             if (type === 'emp' && savedRecord) syncEmployeeLifecycle(savedRecord);
+            if (isAdmin()) {
+                addLog('Record ' + (editId ? 'Edit' : 'Add'), `${type} record updated/added by ${currentUser.username}`);
+            }
             saveDB();
             closeModal();
             const renderFns = { employees: renderEmployees, recruitment: renderRecruitment, applicants: renderApplicants,
@@ -2784,6 +3050,9 @@
         function deleteRecord(dbKey, id) {
             if (!confirm('Delete this record? This cannot be undone.')) return;
             db[dbKey] = db[dbKey].filter(r => r.id !== id);
+            if (isAdmin()) {
+                addLog('Delete', `Deleted ${dbKey} record ${id} by ${currentUser.username}`);
+            }
             saveDB();
             const renderFns = { employees: renderEmployees, recruitment: renderRecruitment, applicants: renderApplicants,
                 newhires: renderNewhires, regularization: renderRegularization, separation: renderSeparation };
@@ -3042,6 +3311,9 @@
             const cur = getTrainStatus(empId, prog);
             const next = TRAINING_CYCLE[(TRAINING_CYCLE.indexOf(cur) + 1) % TRAINING_CYCLE.length];
             db.training[empId][prog] = next;
+            if (isAdmin()) {
+                addLog('Training', `${currentUser.username} updated ${prog} to ${next} for employee ${empId}`);
+            }
             saveDB();
             renderTraining();
             toast(`${prog}: ${next}`, 'info', 1500);
@@ -3176,7 +3448,7 @@
         }
 
         // ================================================================
-        //  IMPORT / EXPORT
+        //  IMPORT / EXPORT — FIXED: saveDB() called after import
         // ================================================================
         const MODULE_RENDER_FNS = { employees: renderEmployees, recruitment: renderRecruitment,
             applicants: renderApplicants, newhires: renderNewhires, regularization: renderRegularization,
@@ -3188,6 +3460,9 @@
             if (MODULE_RENDER_FNS[dbKey]) MODULE_RENDER_FNS[dbKey]();
             refreshDashboard();
             if (document.getElementById('longevity-content')) renderLongevity();
+            if (isAdmin()) {
+                addLog('Import', `Imported data into ${dbKey} by ${currentUser.username}`);
+            }
         }
 
         function importExcel(input, dbKey) {
@@ -3200,9 +3475,10 @@
                     const ws = wb.Sheets[wb.SheetNames[0]];
                     const rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: '' });
                     const result = runImportRows(rows, dbKey);
-                    saveDB();
-                    afterImportRefresh(dbKey);
-                    showImportSummary(dbKey, result);
+                    saveDB().then(() => {
+                        afterImportRefresh(dbKey);
+                        showImportSummary(dbKey, result);
+                    });
                 } catch (err) { toast('Import error: ' + err.message, 'error'); }
             };
             reader.readAsBinaryString(file);
@@ -3227,9 +3503,10 @@
                         rows.push(obj);
                     }
                     const result = runImportRows(rows, dbKey);
-                    saveDB();
-                    afterImportRefresh(dbKey);
-                    showImportSummary(dbKey, result);
+                    saveDB().then(() => {
+                        afterImportRefresh(dbKey);
+                        showImportSummary(dbKey, result);
+                    });
                 } catch (err) { toast('CSV error: ' + err.message, 'error'); }
             };
             reader.readAsText(file);
@@ -3499,7 +3776,7 @@
         }
 
         // ================================================================
-        //  TEMPLATES
+        //  TEMPLATES (Excel)
         // ================================================================
         const IMPORT_TEMPLATES = {
             employees: ['Employee Number', 'Name', 'Designation', 'Job Grade', 'Department', 'Business Line',
@@ -3531,53 +3808,83 @@
         }
 
         // ================================================================
-        //  EXPORT CSV
+        //  EXPORT EXCEL (new function)
         // ================================================================
-        const CSV_CONFIGS = {
-            employees: { headers: ['Emp No', 'Name', 'Designation', 'Job Grade', 'Department', 'Business Line',
+        function exportExcel(dbKey) {
+            let headers, rows, sheetName;
+
+            // Helper to get data based on dbKey
+            if (dbKey === 'employees') {
+                headers = ['Emp No', 'Name', 'Designation', 'Job Grade', 'Department', 'Business Line',
                     'Area Assignment', 'Sex', 'Civil Status', 'Birthday', 'Date Hired', 'Probationary Date',
                     'Regularization Date', 'Tenure', 'Status', 'Educational Attainment', 'Degree', 'SDP', 'BMP',
                     'MDP'
-                ],
-                fields: ['empNo', 'name', 'designation', 'jobGrade', 'dept', 'bizLine', 'area', 'gender',
-                    'civilStatus', 'birthday', 'dateHired', 'probEnd', 'regularDate', '__tenure', 'status',
-                    'education', 'degree', '__sdp', '__bmp', '__mdp'
-                ] },
-            recruitment: { headers: ['Position', 'Department', 'Business Line', 'Vacancy Type', 'Hiring Manager',
+                ];
+                rows = db.employees.map(e => [
+                    e.empNo || '', e.name || '', e.designation || '', e.jobGrade || '', e.dept || '',
+                    e.bizLine || '', e.area || '', e.gender || '', e.civilStatus || '', fmtDate(e.birthday),
+                    fmtDate(e.dateHired), fmtDate(e.probEnd), fmtDate(e.regularDate), computeTenure(e.dateHired),
+                    e.status || '', e.education || '', e.degree || '',
+                    getTrainStatus(e.id, 'SDP'), getTrainStatus(e.id, 'BMP'), getTrainStatus(e.id, 'MDP')
+                ]);
+                sheetName = 'Employees';
+            } else if (dbKey === 'recruitment') {
+                headers = ['Position', 'Department', 'Business Line', 'Vacancy Type', 'Hiring Manager',
                     'Date Opened', 'Target Hire', 'Status', 'Remarks'
-                ],
-                fields: ['position', 'dept', 'bizLine', 'vacType', 'hiringManager', 'dateOpened', 'targetHire',
-                    'status', 'remarks'
-                ] },
-            applicants: { headers: ['Name', 'Position', 'Source', 'Interview Date', 'Stage', 'Status'],
-                fields: ['name', 'position', 'source', 'interviewDate', 'stage', 'status'] },
-            newhires: { headers: ['Employee', 'Position', 'Department', 'Start Date', 'Probation End', 'Status'],
-                fields: ['employee', 'position', 'dept', 'startDate', 'probEnd', 'status'] },
-            regularization: { headers: ['Employee', 'Position', 'Hire Date', 'Probation End', 'Decision'],
-                fields: ['employee', 'position', 'hireDate', 'probationEnd', 'decision'] },
-            separation: { headers: ['Employee Number', 'Employee', 'Position', 'Department', 'Date Separated',
+                ];
+                rows = db.recruitment.map(r => [
+                    r.position || '', r.dept || '', r.bizLine || '', r.vacType || '', r.hiringManager || '',
+                    fmtDate(r.dateOpened), fmtDate(r.targetHire), r.status || '', r.remarks || ''
+                ]);
+                sheetName = 'Recruitment';
+            } else if (dbKey === 'applicants') {
+                headers = ['Name', 'Position', 'Source', 'Interview Date', 'Stage', 'Status'];
+                rows = db.applicants.map(a => [
+                    a.name || '', a.position || '', a.source || '', fmtDate(a.interviewDate), a.stage || '',
+                    a.status || ''
+                ]);
+                sheetName = 'Applicants';
+            } else if (dbKey === 'newhires') {
+                headers = ['Employee', 'Position', 'Department', 'Start Date', 'Probation End', 'Status'];
+                rows = db.newhires.map(n => [
+                    n.employee || '', n.position || '', n.dept || '', fmtDate(n.startDate), fmtDate(n.probEnd),
+                    n.status || ''
+                ]);
+                sheetName = 'New Hires';
+            } else if (dbKey === 'regularization') {
+                headers = ['Employee', 'Position', 'Hire Date', 'Probation End', 'Decision'];
+                rows = db.regularization.map(r => [
+                    r.employee || '', r.position || '', fmtDate(r.hireDate), fmtDate(r.probationEnd),
+                    r.decision || ''
+                ]);
+                sheetName = 'Regularization';
+            } else if (dbKey === 'separation') {
+                headers = ['Employee Number', 'Employee', 'Position', 'Department', 'Date Separated',
                     'Last Working Day', 'Years of Service', 'Separation Type', 'Reason', 'Exit Interview',
                     'Clearance Status', 'Final Pay Status', 'Eligible for Rehire', 'COE Release Status', 'Remarks'
-                ],
-                fields: ['empNo', 'employee', 'position', 'dept', 'dateSeparated', 'lastWorkingDay', '__yos',
-                    'sepType', 'reason', 'exitInterview', 'clearance', 'finalPay', 'rehireEligible', 'coeRelease',
-                    'remarks'
-                ] },
-            training: { headers: ['Employee', 'Department', 'SDP', 'BMP', 'MDP'], fields: [] },
-            longevity: { headers: ['Emp No', 'Employee Name', 'Designation', 'Department', 'Next Milestone',
-                    'Award Date', 'Days Remaining'
-                ], fields: [] }
-        };
-
-        function exportCSV(dbKey) {
-            let rows, headers;
-            if (dbKey === 'training') {
-                headers = CSV_CONFIGS.training.headers;
-                rows = db.employees.map(e => [e.name, e.dept, getTrainStatus(e.id, 'SDP'), getTrainStatus(e.id, 'BMP'),
+                ];
+                rows = db.separation.map(s => {
+                    const emp = s.employeeId ? db.employees.find(e => e.id === s.employeeId) : null;
+                    return [
+                        s.empNo || '', s.employee || '', s.position || '', s.dept || '',
+                        fmtDate(s.dateSeparated), fmtDate(s.lastWorkingDay),
+                        computeYearsOfService(emp ? emp.dateHired : null, s.dateSeparated),
+                        s.sepType || '', s.reason || '', s.exitInterview || '', s.clearance || '',
+                        s.finalPay || '', s.rehireEligible || '', s.coeRelease || '', s.remarks || ''
+                    ];
+                });
+                sheetName = 'Separation';
+            } else if (dbKey === 'training') {
+                headers = ['Employee', 'Department', 'SDP', 'BMP', 'MDP'];
+                rows = db.employees.map(e => [
+                    e.name || '', e.dept || '', getTrainStatus(e.id, 'SDP'), getTrainStatus(e.id, 'BMP'),
                     getTrainStatus(e.id, 'MDP')
                 ]);
+                sheetName = 'Training';
             } else if (dbKey === 'longevity') {
-                headers = CSV_CONFIGS.longevity.headers;
+                headers = ['Emp No', 'Employee Name', 'Designation', 'Department', 'Next Milestone',
+                    'Award Date', 'Days Remaining'
+                ];
                 const milestones = [5, 10, 15, 20, 25, 30];
                 const todayStr = todayISO();
                 rows = [];
@@ -3586,39 +3893,41 @@
                     const base = parseLocalDate(e.probEnd);
                     if (!base) return;
                     for (const m of milestones) {
-                        const aDate = new Date(base.getFullYear() + m, base.getMonth(), base.getDate());
+                        const awardDate = new Date(base.getFullYear() + m, base.getMonth(), base.getDate());
                         const aStr = isoDate(base.getFullYear() + m, base.getMonth(), base.getDate());
                         if (daysDiff(aStr, todayStr) >= 0) {
-                            rows.push([e.empNo || '', e.name, e.designation || '', e.dept || '', m + '-Year Award',
-                                aDate.toLocaleDateString('en-PH'), daysDiff(aStr, todayStr)
+                            rows.push([
+                                e.empNo || '', e.name || '', e.designation || '', e.dept || '',
+                                m + '-Year Award', fmtDateObj(awardDate), daysDiff(aStr, todayStr)
                             ]);
                             break;
                         }
                     }
                 });
                 rows.sort((a, b) => a[6] - b[6]);
+                sheetName = 'Longevity';
             } else {
-                const cfg = CSV_CONFIGS[dbKey];
-                if (!cfg) return;
-                headers = cfg.headers;
-                rows = db[dbKey].map(r => cfg.fields.map(f => {
-                    if (f === '__tenure') return computeTenure(r.dateHired);
-                    if (f === '__sdp') return getTrainStatus(r.id, 'SDP');
-                    if (f === '__bmp') return getTrainStatus(r.id, 'BMP');
-                    if (f === '__mdp') return getTrainStatus(r.id, 'MDP');
-                    if (f === '__yos') { const emp = r.employeeId ? db.employees.find(e => e.id === r
-                            .employeeId) : null; return computeYearsOfService(emp ? emp.dateHired :
-                            null, r.dateSeparated); }
-                    return r[f] || '';
-                }));
+                toast('Unknown export type', 'error');
+                return;
             }
-            const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `beans_hris_${dbKey}_${todayISO()}.csv`;
-            a.click();
-            toast('CSV exported', 'success');
+
+            // Build worksheet
+            const wsData = [headers, ...rows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            // Set column widths
+            ws['!cols'] = headers.map((h, i) => {
+                let maxLen = h.length;
+                rows.forEach(row => {
+                    if (row[i] && row[i].toString().length > maxLen) maxLen = row[i].toString().length;
+                });
+                return { wch: Math.min(Math.max(12, maxLen + 2), 40) };
+            });
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            const fileName = `beans_hris_${dbKey}_${todayISO()}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            toast('Excel exported successfully', 'success');
         }
 
         // ================================================================
@@ -3646,6 +3955,7 @@
                     const saved = await saveDB();
                     if (!saved) throw new Error('Cloud database save failed.');
                     refreshDashboard();
+                    renderUsers();
                     toast('Database restored successfully to cloud', 'success');
                 } catch (err) { toast('Invalid backup file. Please use a file exported from Bean\'s HRIS.', 'error'); }
             };
@@ -3659,10 +3969,11 @@
             const conf = prompt('Type RESET to confirm:');
             if (conf !== 'RESET') { toast('Reset cancelled', 'info'); return; }
             db = { employees: [], recruitment: [], applicants: [], newhires: [], regularization: [], separation: [],
-                training: {}, settings: { darkMode: false } };
+                training: {}, settings: { darkMode: false }, users: [], logs: [] };
             const saved = await saveDB();
             if (!saved) return;
             refreshDashboard();
+            renderUsers();
             toast('Cloud database has been reset', 'warning');
         }
 
@@ -3803,6 +4114,25 @@
             }
 
             await loadDB();
+
+            if (!db.users || db.users.length === 0) {
+                db.users = [{ username: 'admin', password: 'admin123', role: 'admin' }];
+                await saveDB();
+            }
+
+            const user = getSession();
+            if (user) {
+                const valid = db.users.some(u => u.username === user.username && u.password === user.password);
+                if (!valid) {
+                    clearSession();
+                    document.getElementById('login-overlay').classList.add('open');
+                } else {
+                    document.getElementById('login-overlay').classList.remove('open');
+                }
+            } else {
+                document.getElementById('login-overlay').classList.add('open');
+            }
+
             updateDateDisplay();
             setInterval(updateDateDisplay, 60000);
 
@@ -3813,7 +4143,17 @@
                 if (tog) tog.checked = true;
             }
 
-            refreshDashboard();
+            if (getSession()) {
+                refreshDashboard();
+                renderUsers();
+            }
+
+            document.getElementById('login-pass').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') login();
+            });
+            document.getElementById('login-user').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') login();
+            });
         }
 
         init().catch(err => {
