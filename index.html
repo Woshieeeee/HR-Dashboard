@@ -627,13 +627,21 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             background: var(--white);
+            max-height: 600px;
+            overflow-y: auto;
+            position: relative;
         }
-        table {
+        .table-wrap table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
-        thead th {
+        .table-wrap thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .table-wrap thead th {
             background: linear-gradient(135deg, var(--navy), var(--navy-mid));
             color: var(--gold);
             font-size: 11px;
@@ -644,19 +652,22 @@
             font-weight: 700;
             white-space: nowrap;
         }
-        tbody tr {
+        .table-wrap tbody tr {
             border-bottom: 1px solid var(--gray-100);
             transition: background 0.15s;
         }
-        tbody tr:hover {
+        .table-wrap tbody tr:nth-child(even) {
             background: var(--gray-50);
         }
-        tbody td {
+        .table-wrap tbody tr:hover {
+            background: var(--gray-100);
+        }
+        .table-wrap tbody td {
             padding: 11px 14px;
             font-size: 13px;
             color: var(--gray-800);
         }
-        tbody tr:last-child {
+        .table-wrap tbody tr:last-child {
             border-bottom: none;
         }
         .table-actions {
@@ -1306,11 +1317,11 @@
             color: var(--gray-800);
         }
 
-        /* Login overlay */
+        /* ── Login overlay (full screen) ── */
         #login-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.7);
+            background: linear-gradient(135deg, var(--navy), var(--navy-mid));
             z-index: 9999;
             display: none;
             align-items: center;
@@ -1321,27 +1332,50 @@
         }
         .login-box {
             background: var(--white);
-            border-radius: 14px;
-            padding: 40px 30px;
+            border-radius: 16px;
+            padding: 40px 35px;
             width: 100%;
             max-width: 400px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             text-align: center;
+            animation: modalIn 0.3s ease;
         }
         .login-box h2 {
             color: var(--navy);
-            margin-bottom: 20px;
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+        .login-box .sub {
+            color: var(--gray-400);
+            margin-bottom: 25px;
+            font-size: 14px;
         }
         .login-box .form-group {
             text-align: left;
+            position: relative;
+        }
+        .login-box .form-group .form-control {
+            width: 100%;
+            padding-right: 40px;
+        }
+        .login-box .toggle-pwd {
+            position: absolute;
+            right: 12px;
+            top: 65%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .login-box .toggle-pwd:hover {
+            color: var(--gray-800);
         }
         .login-box .btn {
             width: 100%;
             justify-content: center;
             margin-top: 10px;
-        }
-        .login-box .form-control {
-            width: 100%;
         }
         .login-error {
             color: var(--danger);
@@ -1353,18 +1387,19 @@
 </head>
 <body>
 
-    <!-- ===== LOGIN OVERLAY ===== -->
-    <div id="login-overlay">
+    <!-- ===== LOGIN OVERLAY (full screen) ===== -->
+    <div id="login-overlay" class="open">
         <div class="login-box">
             <h2><i class="fa-solid fa-seedling" style="color:var(--gold)"></i> Bean's HRIS</h2>
-            <p style="color:var(--gray-400);margin-bottom:20px;">Please log in to continue</p>
+            <p class="sub">Please log in to continue</p>
             <div class="form-group">
                 <label class="form-label">Username</label>
-                <input class="form-control" id="login-user" placeholder="admin" value="admin">
+                <input class="form-control" id="login-user" placeholder="Enter username" autocomplete="off" />
             </div>
             <div class="form-group" style="margin-top:12px;">
                 <label class="form-label">Password</label>
-                <input class="form-control" id="login-pass" type="password" placeholder="••••••••" value="admin123">
+                <input class="form-control" id="login-pass" type="password" placeholder="Enter password" autocomplete="off" />
+                <button class="toggle-pwd" id="toggle-pwd" type="button"><i class="fa-solid fa-eye"></i></button>
             </div>
             <div class="login-error" id="login-error">Invalid username or password</div>
             <button class="btn btn-primary" onclick="login()"><i class="fa-solid fa-right-to-bracket"></i> Log in</button>
@@ -1761,7 +1796,7 @@
 
     <script>
         // ================================================================
-        //  BEAN'S HRIS — NETLIFY + JSONBIN + AUTH + EXPORT EXCEL
+        //  BEAN'S HRIS — NETLIFY + JSONBIN + AUTH + PROFESSIONAL UI
         // ================================================================
 
         // ── Default empty database ──
@@ -1783,12 +1818,12 @@
         let cloudSaving = false;
         let saveQueue = Promise.resolve();
 
-        // ── Authentication ──
+        // ── Authentication (sessionStorage) ──
         const SESSION_KEY = 'hris_session';
         let currentUser = null;
 
         function getSession() {
-            const sess = localStorage.getItem(SESSION_KEY);
+            const sess = sessionStorage.getItem(SESSION_KEY);
             if (sess) {
                 try {
                     currentUser = JSON.parse(sess);
@@ -1800,12 +1835,12 @@
 
         function setSession(user) {
             currentUser = user;
-            localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
         }
 
         function clearSession() {
             currentUser = null;
-            localStorage.removeItem(SESSION_KEY);
+            sessionStorage.removeItem(SESSION_KEY);
         }
 
         function isAdmin() {
@@ -1816,16 +1851,26 @@
             const user = getSession();
             if (!user) {
                 document.getElementById('login-overlay').classList.add('open');
+                // Hide main content
+                document.getElementById('main').style.display = 'none';
                 return false;
             }
             document.getElementById('login-overlay').classList.remove('open');
+            document.getElementById('main').style.display = 'flex';
             return true;
         }
 
+        // ── Login / Logout ──
         function login() {
             const username = document.getElementById('login-user').value.trim();
             const password = document.getElementById('login-pass').value.trim();
             const errorEl = document.getElementById('login-error');
+
+            if (!username || !password) {
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Please enter both username and password.';
+                return;
+            }
 
             if (!db.users || db.users.length === 0) {
                 db.users = [{ username: 'admin', password: 'admin123', role: 'admin' }];
@@ -1837,10 +1882,14 @@
                 setSession(user);
                 errorEl.style.display = 'none';
                 document.getElementById('login-overlay').classList.remove('open');
+                document.getElementById('main').style.display = 'flex';
                 addLog('Login', `${username} logged in`);
                 refreshDashboard();
                 renderUsers();
                 toast('Welcome back, ' + username + '!', 'success');
+                // Clear fields
+                document.getElementById('login-user').value = '';
+                document.getElementById('login-pass').value = '';
             } else {
                 errorEl.style.display = 'block';
                 errorEl.textContent = 'Invalid username or password';
@@ -1853,8 +1902,31 @@
             }
             clearSession();
             document.getElementById('login-overlay').classList.add('open');
+            document.getElementById('main').style.display = 'none';
+            // Clear fields
+            document.getElementById('login-user').value = '';
+            document.getElementById('login-pass').value = '';
             toast('Logged out', 'info');
         }
+
+        // ── Show / Hide password toggle ──
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleBtn = document.getElementById('toggle-pwd');
+            const passField = document.getElementById('login-pass');
+            toggleBtn.addEventListener('click', function() {
+                const type = passField.getAttribute('type') === 'password' ? 'text' : 'password';
+                passField.setAttribute('type', type);
+                this.querySelector('i').className = type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+            });
+        });
+
+        // ── Auto-logout when tab closes (sessionStorage already cleared) ──
+        // We also handle page unload to clear session (optional)
+        window.addEventListener('beforeunload', function() {
+            // sessionStorage is cleared automatically when tab closes.
+            // If you want to be extra sure, you can clear it:
+            // sessionStorage.removeItem(SESSION_KEY);
+        });
 
         // ── Audit Log ──
         function addLog(action, details) {
@@ -3448,7 +3520,7 @@
         }
 
         // ================================================================
-        //  IMPORT / EXPORT — FIXED: saveDB() called after import
+        //  IMPORT / EXPORT
         // ================================================================
         const MODULE_RENDER_FNS = { employees: renderEmployees, recruitment: renderRecruitment,
             applicants: renderApplicants, newhires: renderNewhires, regularization: renderRegularization,
@@ -3776,7 +3848,7 @@
         }
 
         // ================================================================
-        //  TEMPLATES (Excel)
+        //  TEMPLATES
         // ================================================================
         const IMPORT_TEMPLATES = {
             employees: ['Employee Number', 'Name', 'Designation', 'Job Grade', 'Department', 'Business Line',
@@ -3808,12 +3880,11 @@
         }
 
         // ================================================================
-        //  EXPORT EXCEL (new function)
+        //  EXPORT EXCEL (professional)
         // ================================================================
         function exportExcel(dbKey) {
             let headers, rows, sheetName;
 
-            // Helper to get data based on dbKey
             if (dbKey === 'employees') {
                 headers = ['Emp No', 'Name', 'Designation', 'Job Grade', 'Department', 'Business Line',
                     'Area Assignment', 'Sex', 'Civil Status', 'Birthday', 'Date Hired', 'Probationary Date',
@@ -3911,10 +3982,10 @@
                 return;
             }
 
-            // Build worksheet
+            // Build worksheet with professional formatting
             const wsData = [headers, ...rows];
             const ws = XLSX.utils.aoa_to_sheet(wsData);
-            // Set column widths
+            // Auto-size columns
             ws['!cols'] = headers.map((h, i) => {
                 let maxLen = h.length;
                 rows.forEach(row => {
@@ -4120,18 +4191,26 @@
                 await saveDB();
             }
 
+            // Check session
             const user = getSession();
             if (user) {
                 const valid = db.users.some(u => u.username === user.username && u.password === user.password);
                 if (!valid) {
                     clearSession();
                     document.getElementById('login-overlay').classList.add('open');
+                    document.getElementById('main').style.display = 'none';
                 } else {
                     document.getElementById('login-overlay').classList.remove('open');
+                    document.getElementById('main').style.display = 'flex';
                 }
             } else {
                 document.getElementById('login-overlay').classList.add('open');
+                document.getElementById('main').style.display = 'none';
             }
+
+            // Always clear login fields
+            document.getElementById('login-user').value = '';
+            document.getElementById('login-pass').value = '';
 
             updateDateDisplay();
             setInterval(updateDateDisplay, 60000);
@@ -4148,6 +4227,7 @@
                 renderUsers();
             }
 
+            // Enter key to login
             document.getElementById('login-pass').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') login();
             });
